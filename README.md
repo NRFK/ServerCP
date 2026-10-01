@@ -105,6 +105,21 @@ The page shows active edge connections, connector request/error counters, active
 
 The standard `cloudflared.service` and the helper's `servercp-tunnel.service` are detected independently. Journal viewing uses the remote user's permissions; restarting uses the same explicit sudo model as other service buttons. Restarting the connector through which you are visiting the panel may briefly interrupt access.
 
+### Troubleshoot a gateway error
+
+On the host where ServerCP and the connector are running, check the local panel first:
+
+```bash
+curl --noproxy '*' --max-time 10 -sS -o /dev/null -w 'Local panel HTTP status: %{http_code}\n' http://127.0.0.1:8090/
+sudo systemctl show servercp servercp-tunnel --property=Id,ActiveState,SubState,ExecMainStatus --no-pager
+sudo journalctl -u servercp -n 60 --no-pager
+sudo journalctl -u servercp-tunnel -n 40 --no-pager
+```
+
+The local root URL should return HTTP 200. If it does not, inspect the ServerCP journal for the actual startup/runtime error. If the local root URL works, confirm that the published application route for your hostname uses **HTTP** and `127.0.0.1:8090`, and that the connector is on the same host. A connector running inside Docker has its own loopback interface and cannot use this host-only address without suitable container networking. Do not change the listener to a public address just to bypass this diagnosis. If you used the standard `cloudflared.service` rather than the helper, inspect that unit's journal instead. Panel requests require `PANEL_ORIGIN` to match the browser's HTTPS hostname.
+
+The UI now summarizes HTML gateway error pages instead of displaying their source; JSON SSH errors still retain their specific connection details. A display improvement does not repair an unavailable origin.
+
 This first version does not use a tunnel as an SSH proxy. To administer remote servers behind NAT, provide a reachable SSH route via your VPN or configure Cloudflare private network routing/WARP on the panel host and use the remote server's routed private IP. Publishing the panel through an HTTP tunnel does not itself make every remote SSH server reachable.
 
 ### Connector maintenance
@@ -148,6 +163,7 @@ Default origin: `http://localhost:8090`; default data directory: `./data`. Use o
 ```bash
 .venv/bin/pip install pytest httpx
 .venv/bin/python -m pytest -q
+node --test tests/http-errors.test.cjs
 ```
 
 Tests exercise login/session protection, origin checks, encrypted credentials, command validation, host-key rejection and SSH metrics/terminal paths against an isolated local SSH fixture. They never administer your real servers.

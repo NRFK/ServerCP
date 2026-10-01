@@ -5,14 +5,19 @@ let refreshBusy = false;
 let tunnelUnit = '';
 const titles = {overview:['Server overview','A live view of the machine you’re managing.'],services:['Services','Manage system services from one place.'],logs:['System logs','Follow the selected server’s journal.'],terminal:['Terminal','A direct connection to your server’s shell.'],tunnel:['Cloudflare Tunnel','Monitor connector connections, requests and origin errors.'],servers:['Server connections','Manage the machines in your workspace.'],audit:['Activity','Review recent administration activity.']};
 async function api(path, options = {}) {
-  const response = await fetch('/api' + path, {credentials:'same-origin', headers:{'Content-Type':'application/json'}, ...options});
+  let response;
+  try {
+    response = await fetch('/api' + path, {credentials:'same-origin', headers:{'Content-Type':'application/json'}, ...options});
+  } catch {
+    throw new Error('The connection to ServerCP was interrupted. Check your network and the panel service.');
+  }
   if (!response.ok) {
-    let message = await response.text();
-    try { message = JSON.parse(message).detail || message; if(Array.isArray(message)) message=message.map(x=>`${x.loc?.at(-1)||'Field'}: ${x.msg}`).join('; '); } catch {}
+    const message = ServerCPHttp.message(response.status, await response.text());
     if (response.status === 401 && path !== '/login') showLogin();
     throw new Error(message);
   }
-  return response.json();
+  try { return await response.json(); }
+  catch { throw new Error('The server returned an unexpected response. Check the tunnel route and your access session.'); }
 }
 function notice(message='') { $('notice').textContent=message; $('notice').hidden=!message; }
 function showLogin() { disconnect(); generation++; $('workspace').hidden=true; $('login').hidden=false; }
