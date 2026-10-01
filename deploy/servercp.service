@@ -1,0 +1,23 @@
+[Unit]
+Description=ServerCP Linux server control panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=servercp
+Group=servercp
+WorkingDirectory=/opt/servercp
+EnvironmentFile=/etc/servercp/servercp.env
+ExecStart=/opt/servercp/.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8090 --workers 1 --ws-max-size 65536 --no-proxy-headers
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/servercp
+
+[Install]
+WantedBy=multi-user.target
